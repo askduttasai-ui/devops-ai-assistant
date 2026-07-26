@@ -2,3 +2,5 @@ venv/
 __pycache__/
 *.pyc
 .env
+Project\ Data.txt 
+Project Data.txt
