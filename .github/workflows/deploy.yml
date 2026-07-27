@@ -31,9 +31,22 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            echo "Pulling latest image..."
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops-ai-assistant:latest
+
+            echo "Stopping old container (if any)..."
             docker stop ai-assistant || true
             docker rm ai-assistant || true
+
+            echo "Starting new container..."
             docker run -d -p 5000:5000 -e GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
               --name ai-assistant --restart unless-stopped \
               ${{ secrets.DOCKERHUB_USERNAME }}/devops-ai-assistant:latest
+
+            echo "Verifying container is healthy..."
+            sleep 5
+            curl -f http://localhost:5000/health
+
+            echo "Deployed image digest:"
+            docker inspect --format='{{.Image}}' ai-assistant
