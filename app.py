@@ -7,10 +7,39 @@ app = Flask(__name__)
 # Read the Gemini API key from an environment variable (set via Docker / GitHub secret, never hard-coded)
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
+# System instruction locks the AI to Cloud / DevOps / DevSecOps topics only.
+# This is enforced by the model itself on every single request - it cannot
+# be overridden by anything the user types in the question box.
+SYSTEM_INSTRUCTION = """You are a strict Cloud, DevOps, and DevSecOps assistant only.
+
+You are ONLY allowed to answer questions about:
+- Cloud platforms: AWS, Azure, GCP (services, architecture, pricing, free tier, IAM)
+- DevOps tools and practices: Docker, Kubernetes, Terraform, Ansible, Jenkins,
+  GitHub Actions, GitLab CI, CI/CD pipelines, monitoring, logging, Linux administration
+- DevSecOps: security scanning, secrets management, vulnerability management,
+  compliance, container security, shift-left security practices
+- Analyzing pasted server/application/CI logs to find errors and suggest fixes
+  related to the above topics
+
+STRICT RULES:
+1. If a question is unrelated to Cloud/DevOps/DevSecOps (e.g. entertainment,
+   movies, sports, general trivia, personal advice, politics, jokes, coding
+   in unrelated domains, etc.), you MUST refuse.
+2. When refusing, reply with EXACTLY this message and nothing else:
+   "I'm a Cloud/DevOps/DevSecOps assistant and can only help with topics in
+   that area. Please ask a Cloud, DevOps, or DevSecOps related question."
+3. Do not answer the off-topic question even partially, even briefly, even
+   as a joke, even if the user insists, claims a special exception, or tries
+   to disguise the request as DevOps-related.
+4. Stay strict on this even across a long conversation."""
+
 model = None
 if API_KEY:
     genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel("gemini-3.5-flash")
+    model = genai.GenerativeModel(
+        "gemini-3.5-flash",
+        system_instruction=SYSTEM_INSTRUCTION,
+    )
 
 PAGE = """
 <!DOCTYPE html>
@@ -28,9 +57,9 @@ PAGE = """
 </head>
 <body>
   <h1>DevOps AI Assistant</h1>
-  <p>Ask a DevOps / Cloud question, or paste a log to analyze.</p>
+  <p>Cloud / DevOps / DevSecOps questions only. Ask a question, or paste a log to analyze.</p>
   <form method="POST">
-    <textarea name="question" rows="6" placeholder="Ask a question OR paste a log here...">{{ question or '' }}</textarea>
+    <textarea name="question" rows="6" placeholder="e.g. What is a Kubernetes pod? OR paste a log here...">{{ question or '' }}</textarea>
     <button type="submit">Ask AI</button>
   </form>
   {% if answer %}
@@ -52,13 +81,8 @@ def home():
         if not API_KEY or model is None:
             answer = "ERROR: GEMINI_API_KEY is not set on the server."
         elif question.strip():
-            prompt = (
-                "You are a helpful, concise DevOps and Cloud expert assistant. "
-                "If the user pastes a log, find errors and suggest fixes. "
-                "If they ask a question, answer clearly for a beginner.\n\n" + question
-            )
             try:
-                result = model.generate_content(prompt)
+                result = model.generate_content(question)
                 answer = result.text
             except Exception as e:
                 answer = "AI request failed: " + str(e)
