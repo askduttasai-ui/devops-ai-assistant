@@ -40,7 +40,25 @@ docker push YOUR_DOCKERHUB_USERNAME/devops-ai-assistant:latest
 | `.dockerignore` | Files excluded from the Docker image |
 | `.gitignore` | Files excluded from Git |
 | `.env.example` | Template for your local `GEMINI_API_KEY` |
-| `.github/workflows/deploy.yml` | CI/CD pipeline: build → push → deploy to EC2 |
+| `.github/workflows/deploy.yml` | CI/CD pipeline: validate → human-approved Docker publish → human-approved EC2 deploy |
+| `.github/workflows/ai-agent-rca.yml` | AI agent workflow that creates an RCA artifact/issue when CI/CD fails |
+| `.github/workflows/ai-agent-remediate.yml` | Human-approved AI remediation workflow that opens a PR |
+| `scripts/ai_ci_agent.py` | Constrained RCA/remediation agent used by GitHub Actions |
+| `docs/AI_AGENT_RUNBOOK.md` | Setup and operations guide for the AI CI/CD remediation loop |
+
+## AI CI/CD remediation agent
+
+When the main CI/CD workflow fails, the AI agent collects logs, reviews GitHub Actions/Docker context, creates an RCA artifact, and opens an issue. It does **not** fix code immediately.
+
+A human must approve remediation by commenting this on the RCA issue:
+
+```text
+/ai-agent approve
+```
+
+After approval, the agent creates a branch, applies an allow-listed fix, validates Python + Docker + `/health`, and opens a pull request. A human still reviews/merges the PR. Docker publishing and production deployment are gated by GitHub Environments named `docker-publish` and `production`.
+
+See `docs/AI_AGENT_RUNBOOK.md` for setup details.
 
 ## Required GitHub Actions secrets
 
@@ -51,3 +69,11 @@ Set these under **Settings → Secrets and variables → Actions**:
 - `EC2_HOST`
 - `EC2_SSH_KEY`
 - `GEMINI_API_KEY`
+- `AI_AGENT_API_KEY` (optional but recommended; if omitted, the agent uses `GEMINI_API_KEY`)
+
+## Required GitHub Environments
+
+Create these under **Settings → Environments** and add required reviewers:
+
+- `docker-publish`
+- `production`

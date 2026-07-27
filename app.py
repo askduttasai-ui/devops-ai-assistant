@@ -4,8 +4,9 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Read the Gemini API key from an environment variable (set via Docker / GitHub secret, never hard-coded)
+# Read Gemini settings from environment variables (set via Docker / GitHub secrets, never hard-coded)
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 
 # System instruction locks the AI to Cloud / DevOps / DevSecOps topics only.
 # This is enforced by the model itself on every single request - it cannot
@@ -37,7 +38,7 @@ model = None
 if API_KEY:
     genai.configure(api_key=API_KEY)
     model = genai.GenerativeModel(
-        "gemini-3.5-flash",
+        GEMINI_MODEL,
         system_instruction=SYSTEM_INSTRUCTION,
     )
 
